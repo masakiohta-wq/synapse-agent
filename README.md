@@ -10,11 +10,12 @@
 > ぜひ皆さまのプロジェクトで活用いただき、改善点やご要望などを GitHub の Issues や Discussions にてお気軽にお寄せください！みんなで素晴らしいフレームワークを作り上げましょう！
 
 > [!TIP]
-> **📖 公式解説シリーズ公開中！**
+> **📖 公式リソース ＆ 解説シリーズ公開中！**
 > Synapse のコアな設計思想や、商用 AI エージェント開発における実践的なノウハウ（State駆動、フロント防御エージェント、ポインタ設計など）を体系的にまとめた解説記事を各プラットフォームで公開しています。
-> - **[Qiita](https://qiita.com)**: 有向グラフの限界やハルシネーション対策などの完全版技術解説
-> - **[Zenn](https://zenn.dev)**: マルチエージェント設計の罠や出力トークン最適化などの実践的開発ノウハウ
-> - **[note](https://note.com)**: ビジネス実務におけるAIエージェントの思想とシステム設計の真実
+> - **[GitHub Repository](https://github.com/masakiohta-wq/synapse-agent)**: Synapse Framework のすべてのソースコード、最新の開発状況を公開中。スター大歓迎！⭐️
+> - **[Qiita](https://qiita.com/masaki_ohta/items/cca96c4b9e08fc21aab2)**: 有向グラフの限界やハルシネーション対策などの完全版技術解説
+> - **[Zenn](https://zenn.dev/masaki_ohta/articles/a16f47582b56c7)**: マルチエージェント設計の罠や出力トークン最適化などの実践的開発ノウハウ
+> - **[note](https://note.com/mr_bation)**: ビジネス実務におけるAIエージェントの思想とシステム設計の真実
 
 ---
 
