@@ -190,56 +190,16 @@ export class Network {
 
   /**
    * ライセンスサーバーと通信し、有効性を確認します。
-   * (アプリ起動時に1度だけ await network.verifyLicense() を呼ぶ想定)
+   * ⚡️ ベータ期間・無制限無料キャンペーン:
+   * 現在はバージョン0のベータ評価期間のため、すべての制限を無効化しています。
+   * エージェント数無制限・ライセンスキー不要で、すべての機能を完全無料でご利用いただけます。
    */
   public async verifyLicense(): Promise<void> {
-    // すでに認証済みならスキップ
     if (this.isLicenseValid) return;
 
-    // ⚡️ フリーミアム・ロジック: 4エージェント以下なら無料で利用可能
-    const agentCount = this.agentMap.size;
-    if (agentCount <= 4) {
-      if (!this.isLicenseValid) {
-        console.log(`[Synapse] Free Tier Active: Running with ${agentCount} agents. (Limit: 4 for free)`);
-        this.isLicenseValid = true;
-      }
-      return;
-    }
-
-    // 5エージェント以上の場合は、ライセンスキーが必須
-    if (!this.licenseKey) {
-      throw new Error(`Synapse: 5エージェント以上の構成にはライセンスキーが必要です。現在のエージェント数: ${agentCount}`);
-    }
-
-    let lastError: Error | null = null;
-    const maxRetries = 3;
-
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        const response = await this.fetchFn("https://marketplace-server-arr2bpx7bq-an.a.run.app/api/verify-license", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ licenseKey: this.licenseKey })
-        });
-
-        const data = await response.json();
-        if (!response.ok || !data.valid) {
-          throw new Error("ライセンスキーが無効、または解約されています。GCP Marketplaceでサブスクリプションを確認してください。");
-        }
-        this.isLicenseValid = true;
-        console.log("Synapse Framework: ライセンス認証に成功しました。");
-        return;
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-        if (attempt < maxRetries - 1) {
-          const waitMs = Math.pow(2, attempt) * 2000;
-          console.warn(`Synapse Framework: ライセンス認証リトライ中... (${attempt + 1}/${maxRetries}) - ${lastError.message}`);
-          await new Promise(resolve => setTimeout(resolve, waitMs));
-        }
-      }
-    }
-
-    throw new Error("Synapse Framework 認証エラー: " + lastError?.message);
+    this.isLicenseValid = true;
+    console.log(`[Synapse] Beta Phase Active: All orchestration limits are currently disabled. Enjoy unlimited multi-agent structures for free! We highly appreciate your feedback on our public GitHub repository: https://github.com/masakiohta-wq/synapse-agent`);
+    return;
   }
 
   /** 指定名のAgentを返す。存在しない場合はエラー。 */
