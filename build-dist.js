@@ -7,7 +7,7 @@ import { execSync } from "child_process";
 async function build() {
   console.log("1. tsc で型定義ファイル(.d.ts)とJSファイルを生成しています...");
   // typescriptのビルド（型定義ファイルを出力するため）
-  execSync("npx tsc", { stdio: "inherit" });
+  execSync("node node_modules/typescript/bin/tsc", { stdio: "inherit" });
 
   console.log("2. src/index.ts を1つの難読化用JSファイルにバンドルしています...");
   await esbuild.build({

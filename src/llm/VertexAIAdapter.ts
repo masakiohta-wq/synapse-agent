@@ -10,6 +10,8 @@ export interface VertexAIConfig {
   modelName?: string;
   /** default: 3 */
   maxRetries?: number;
+  /** 外部からカスタムの fetch 関数を注入可能にします。 */
+  customFetch?: typeof fetch;
 }
 
 export class VertexAIAdapter implements LLMClient {
@@ -18,6 +20,7 @@ export class VertexAIAdapter implements LLMClient {
   private readonly defaultModelName: string;
   private readonly maxRetries: number;
   private readonly auth: GoogleAuth;
+  private readonly fetchFn: typeof fetch;
 
   constructor(config: VertexAIConfig) {
     if (!config.projectId) {
@@ -30,6 +33,16 @@ export class VertexAIAdapter implements LLMClient {
     this.auth = new GoogleAuth({
       scopes: ["https://www.googleapis.com/auth/cloud-platform"],
     });
+
+    // customFetch -> globalThis.fetch -> global.fetch の順で安全に解決
+    const resolvedFetch = config.customFetch ?? 
+      (typeof globalThis !== "undefined" && typeof globalThis.fetch === "function" ? globalThis.fetch : undefined) ??
+      (typeof fetch === "function" ? fetch : undefined);
+
+    if (!resolvedFetch) {
+      throw new Error("VertexAIAdapter: fetch 関数が検出できませんでした。環境に fetch が存在しない場合は、config.customFetch にカスタムの fetch 関数を渡してください。");
+    }
+    this.fetchFn = resolvedFetch;
   }
 
   async generate(prompt: string, options: GenerateOptions): Promise<LLMResult> {
@@ -94,7 +107,7 @@ export class VertexAIAdapter implements LLMClient {
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
         const accessToken = await this._getAccessToken();
-        const response = await fetch(endpoint, {
+        const response = await this.fetchFn(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

@@ -7,12 +7,15 @@ export interface GeminiConfig {
   modelName?: string;
   /** default: 3 */
   maxRetries?: number;
+  /** 外部からカスタムの fetch 関数を注入可能にします。 */
+  customFetch?: typeof fetch;
 }
 
 export class GeminiAdapter implements LLMClient {
   private readonly apiKey: string;
   private readonly defaultModelName: string;
   private readonly maxRetries: number;
+  private readonly fetchFn: typeof fetch;
 
   constructor(config: GeminiConfig) {
     if (!config.apiKey) {
@@ -21,6 +24,16 @@ export class GeminiAdapter implements LLMClient {
     this.apiKey = config.apiKey;
     this.defaultModelName = config.modelName ?? "gemini-2.5-flash";
     this.maxRetries = config.maxRetries ?? 3;
+
+    // customFetch -> globalThis.fetch -> global.fetch の順で安全に解決
+    const resolvedFetch = config.customFetch ?? 
+      (typeof globalThis !== "undefined" && typeof globalThis.fetch === "function" ? globalThis.fetch : undefined) ??
+      (typeof fetch === "function" ? fetch : undefined);
+
+    if (!resolvedFetch) {
+      throw new Error("GeminiAdapter: fetch 関数が検出できませんでした。環境に fetch が存在しない場合は、config.customFetch にカスタムの fetch 関数を渡してください。");
+    }
+    this.fetchFn = resolvedFetch;
   }
 
   async generate(prompt: string, options: GenerateOptions): Promise<LLMResult> {
@@ -73,7 +86,7 @@ export class GeminiAdapter implements LLMClient {
 
     for (let attempt = 0; attempt < this.maxRetries; attempt++) {
       try {
-        const response = await fetch(endpoint, {
+        const response = await this.fetchFn(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),

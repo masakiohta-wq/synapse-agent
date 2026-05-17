@@ -22,6 +22,8 @@ export interface NetworkConfig {
   preloadGlobalState?: StateDiff;
   /** マケプレ等で発行された有効なライセンスキー (4エージェント以下なら不要) */
   licenseKey?: string;
+  /** 外部からカスタムの fetch 関数を注入可能にします。 */
+  customFetch?: typeof fetch;
 }
 
 export class Network {
@@ -34,6 +36,7 @@ export class Network {
   private isLicenseValid: boolean = false;
   /** 全エージェントで共有するセッション状態 */
   private readonly sessionStatus = { terminateReason: null as string | null };
+  private readonly fetchFn: typeof fetch;
 
   constructor(config: NetworkConfig) {
     if (!config.llm) throw new Error("Network: llm は必須です");
@@ -47,6 +50,16 @@ export class Network {
     this.logger = config.logger;
     this.agentMap = new Map();
     this.toolDefinitions = new Map();
+
+    // customFetch -> globalThis.fetch -> global.fetch の順で安全に解決
+    const resolvedFetch = config.customFetch ?? 
+      (typeof globalThis !== "undefined" && typeof globalThis.fetch === "function" ? globalThis.fetch : undefined) ??
+      (typeof fetch === "function" ? fetch : undefined);
+
+    if (!resolvedFetch) {
+      throw new Error("Network: fetch 関数が検出できませんでした。環境に fetch が存在しない場合は、config.customFetch にカスタムの fetch 関数を渡してください。");
+    }
+    this.fetchFn = resolvedFetch;
 
     // ToolDefinition を Map に格納
     for (const tool of config.tools) {
@@ -203,7 +216,7 @@ export class Network {
 
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        const response = await fetch("https://marketplace-server-arr2bpx7bq-an.a.run.app/api/verify-license", {
+        const response = await this.fetchFn("https://marketplace-server-arr2bpx7bq-an.a.run.app/api/verify-license", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ licenseKey: this.licenseKey })
