@@ -272,7 +272,7 @@ AI が実行できるツール（関数）の仕様を定義します。
 
 **構成例 (NetworkConfig):**
 ```typescript
-// 1. 実際のロジックをマップで定義（関心の分離）
+// 1. 実際のロジックをマップで定義（関心の分離・プロトタイプ汚染対策）
 const handlers: Record<string, (args: any, ctx: AgentContext) => Promise<any>> = {
   fetch_stock_price: async (args) => 150.5,
   search_news: async (args) => ["News A", "News B"],
@@ -284,9 +284,12 @@ const network = new Network({
   tools: [searchTool, fetchPriceTool],
   agents: [orchestratorConfig, analystConfig],
   onToolCall: async (call, ctx) => {
+    // 🛡️ 安全ガード: 登録されたホワイトリスト以外のキー実行を完全に遮断
+    if (!Object.prototype.hasOwnProperty.call(handlers, call.name)) {
+      throw new Error(`未登録または実行不許可のツールです: ${call.name}`);
+    }
     const handler = handlers[call.name];
-    if (handler) return await handler(call.args, ctx);
-    throw new Error(`Handler for ${call.name} not found`);
+    return await handler(call.args, ctx);
   },
   logger,
   harness,
@@ -695,6 +698,35 @@ const network = new Network({
 > ツールの戻り値（`result`）は、フレームワーク内部で自動的に `JSON.stringify` され、AI に対して `result` プロパティの値として提示されます。そのため、ユーザー側で手動で文字列に変換（シリアライズ）する必要はありません。
 > ただし、**オブジェクトの階層が極端に深い**場合、文字列表現の限界により一部が `[object]` と表示されたり、AI が構造を正しく解釈できなくなったりする恐れがあります。AI に見せる結果データは、可能な限りフラットで分かりやすい構造に留めることを推奨します。
 
+> [!TIP]
+> **💡 運用設計ベストプラクティス：ツールのファイル分割と安全な動的ディスパッチ**
+> 実業務においてツールが数十個に増えた場合、`onToolCall` 内に `if-else` 分岐を書いたり、1つのオブジェクトにベタ書きするとコードが肥大化します。
+> 推奨される運用設計は、機能ドメインごとにファイル（例：`userTools.ts`, `sheetTools.ts`）を分け、最終的に1つのオブジェクトにマージ（レジストリ化）して動的に実行する構成です。
+> ```typescript
+> // ドメインごとにツールを分割定義
+> const userTools = {
+>   get_user_info: async (args: { userId: string }) => ({ name: "Alice" })
+> };
+> const sheetTools = {
+>   update_sheet: async (args: { row: number, val: any }) => ({ success: true })
+> };
+> 
+> // 1つのレジストリにマージ（スプレッド演算子で統合）
+> const toolRegistry: Record<string, (args: any) => Promise<any>> = {
+>   ...userTools,
+>   ...sheetTools
+> };
+> 
+> // onToolCall でプロトタイプ汚染対策をして動的実行
+> const onToolCall = async (call) => {
+>   // 🛡️ 安全ガード
+>   if (!Object.prototype.hasOwnProperty.call(toolRegistry, call.name)) {
+>     throw new Error(`未登録または実行不許可のツールです: ${call.name}`);
+>   }
+>   return await toolRegistry[call.name](call.args);
+> };
+> ```
+
 ### 7. 実装方法：サンプルコード（最大構成）
 
 階層型マルチエージェント（Front/Orchestrator/Specialists）、RAG（`initialTool`）、高度なガードレール（Harness）、および詳細な観測（Logger）を組み合わせた、Synapse の機能をフル活用する実装例です。
@@ -854,8 +886,11 @@ const network = new Network({
   harness,
   logger,
   onToolCall: async (call, ctx) => {
+    // 🛡️ 安全ガード: プロトタイプ汚染や意図しないプロパティ実行の防御
+    if (!Object.prototype.hasOwnProperty.call(toolHandlers, call.name)) {
+      throw new Error(`未登録または実行不許可のツールです: ${call.name}`);
+    }
     const handler = toolHandlers[call.name as keyof typeof toolHandlers];
-    if (!handler) throw new Error(`Handler for ${call.name} not found`);
     return await handler(call.args as any);
   },
   licenseKey: process.env.SYNAPSE_LICENSE_KEY // ベータ期間中のため省略可能
